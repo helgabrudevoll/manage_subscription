@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Subscription flow prototype</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ===== H.A.R.M.O.N.Y tokens (light mode, values from the Figma library) ===== */
+:root{
+  /* Semantics */
+  --hs-text-primary:#18171c;
+  --hs-text-secondary:#474554;
+  --hs-surface-bg-0:#ffffff;
+  --hs-surface-bg-50:#f2f1f4;
+  --hs-surface-border-100:#e3e3e8;
+  --hs-surface-border-200:#c8c7d1;
+  --hs-surface-border-300:#acabba;
+  --primitives-brand-600:#626bd0;
+  /* Modal */
+  --modal-background-default:#ffffff;
+  --modal-border-default:#e3e3e8;
+  --modal-footer-default:#f2f1f4;
+  --shadow-300:0 2px 4px rgba(0,0,0,.08),0 7px 7px rgba(0,0,0,.07),0 17px 10px rgba(0,0,0,.04),0 30px 12px rgba(0,0,0,.01);
+  /* Button */
+  --button-radius:8px;
+  --button-soft-bg:#ffffff; --button-soft-outer:#c8c7d1; --button-soft-inner:rgba(0,0,0,.12); --button-soft-text:#18171c;
+  --button-neutral-bg:#2f2e38; --button-neutral-outer:#18171c; --button-neutral-inner:rgba(255,255,255,.04);
+  --button-brand-bg:#626bd0; --button-brand-outer:#4a55c9; --button-brand-inner:rgba(255,255,255,.2);
+  --button-danger-bg:#dc2626; --button-danger-outer:#dc2626; --button-danger-inner:rgba(255,255,255,.12);
+  /* Label (tags) */
+  --tags-success-bg:#d1fae5; --tags-success-border:#059669; --tags-success-text:#065f46;
+  --tags-attention-bg:#fef3c7; --tags-attention-border:#b45309; --tags-attention-text:#78350f;
+  --tags-neutral-bg:#f2f1f4; --tags-neutral-border:#918fa3; --tags-neutral-text:#2f2e38;
+  /* Focus/A11Y */
+  --focus-ring:0 0 0 2px var(--hs-surface-bg-0),0 0 0 5px var(--primitives-brand-600);
+}
+
+*{box-sizing:border-box}
+body{margin:0;font-family:"IBM Plex Sans",system-ui,sans-serif;background:var(--hs-surface-bg-0);color:var(--hs-text-primary);font-size:16px;line-height:1.3}
+:focus-visible{outline:none;box-shadow:var(--focus-ring)}
+
+/* Page shell (generic, not part of the test) */
+header{border-bottom:1px solid var(--hs-surface-border-100);padding:14px 32px;display:flex;align-items:center;justify-content:space-between}
+.logo{font-weight:600;font-size:16px;display:flex;gap:8px;align-items:center}
+.logo span{width:22px;height:22px;border-radius:6px;background:var(--button-neutral-bg)}
+nav{display:flex;gap:22px;color:var(--hs-text-secondary);font-size:14px}
+nav b{color:var(--hs-text-primary);font-weight:500}
+main{max-width:900px;margin:0 auto;padding:28px 32px 90px}
+.back{color:var(--hs-text-secondary);font-size:12px;display:inline-block;margin-bottom:10px}
+.title-row{display:flex;justify-content:space-between;align-items:center;gap:16px}
+h1{font-size:32px;font-weight:500;margin:0 0 12px}
+h2{font-size:25px;font-weight:500;margin:36px 0 12px}
+.meta{font-size:14px;line-height:1.7;margin-bottom:20px;color:var(--hs-text-secondary)}
+.meta b{color:var(--hs-text-primary);font-weight:500}
+
+/* Status card (built from NavigationCard + HS->Label) */
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.card{background:var(--hs-surface-bg-0);border:1px solid var(--hs-surface-border-100);border-radius:8px;padding:16px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.card .k{font-size:14px;color:var(--hs-text-secondary);margin-bottom:6px}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--hs-surface-bg-50);border:1px solid var(--hs-surface-border-100);display:inline-block;vertical-align:middle;margin-right:10px}
+
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-weight:500;padding:10px 8px;border-bottom:1px solid var(--hs-surface-border-200)}
+td{padding:10px 8px;border-bottom:1px solid var(--hs-surface-border-100)}
+.r{text-align:right}
+.totals{display:flex;justify-content:flex-end;gap:40px;padding:12px 8px;font-weight:500}
+
+/* ===== HS->Label ===== */
+.label{display:inline-flex;align-items:center;gap:5px;padding:5px 6px;border-radius:4px;border:1px solid;font-size:12px;font-weight:500;line-height:1}
+.label.success{background:var(--tags-success-bg);border-color:var(--tags-success-border);color:var(--tags-success-text)}
+.label.attention{background:var(--tags-attention-bg);border-color:var(--tags-attention-border);color:var(--tags-attention-text)}
+
+/* ===== HS->Button ===== */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;height:36px;padding:0;border-radius:var(--button-radius);border:1px solid;font:500 16px/20px "IBM Plex Sans",sans-serif;cursor:pointer;overflow:hidden;white-space:nowrap}
+.btn > span{display:flex;align-items:center;gap:10px;height:100%;padding:0 10px;border-radius:var(--button-radius)}
+.btn.s200{height:32px;font-size:14px;line-height:14px}
+.btn.s200 > span{padding:0 8px;gap:8px}
+.btn.soft{background:var(--button-soft-bg);border-color:var(--button-soft-outer);color:var(--button-soft-text)}
+.btn.soft > span{border-bottom:2px solid var(--button-soft-inner)}
+.btn.neutral{background:var(--button-neutral-bg);border-color:var(--button-neutral-outer);color:#fff}
+.btn.neutral > span{border:2px solid var(--button-neutral-inner)}
+.btn.brand{background:var(--button-brand-bg);border-color:var(--button-brand-outer);color:#fff}
+.btn.brand > span{border:2px solid var(--button-brand-inner)}
+.btn.danger{background:var(--button-danger-bg);border-color:var(--button-danger-outer);color:#fff}
+.btn.danger > span{border:2px solid var(--button-danger-inner)}
+.btn:hover{filter:brightness(.96)}
+.btn.icon{width:32px;height:32px}
+.btn.icon > span{padding:0;width:100%;justify-content:center}
+.btn svg{width:16px;height:16px;flex:none}
+.btn.plain{background:none;border-color:transparent;color:var(--hs-text-primary);text-decoration:underline;text-underline-offset:3px}
+.btn.plain > span{padding:0 2px}
+
+/* ===== HS->Modal template ===== */
+.overlay{position:fixed;inset:0;background:rgba(24,23,28,.4);display:none;align-items:center;justify-content:center;padding:20px;z-index:10}
+.overlay.open{display:flex}
+.modal{width:407px;max-width:100%;background:var(--modal-background-default);border-top:1px solid var(--hs-surface-border-100);border-radius:12px;box-shadow:var(--shadow-300);overflow:hidden;animation:pop .15s ease-out}
+@keyframes pop{from{transform:translateY(6px);opacity:0}to{transform:none;opacity:1}}
+.m-head{display:flex;align-items:center;gap:32px;padding:16px 22px;border-bottom:1px solid var(--modal-border-default)}
+.m-head .t{flex:1;display:flex;align-items:center;gap:16px;min-width:0}
+.m-head h3{margin:0;font-size:18px;font-weight:500;line-height:1.3}
+.m-body{padding:22px;display:flex;flex-direction:column;gap:16px}
+.m-body p{margin:0;font-size:16px}
+.m-foot{display:flex;justify-content:flex-end;align-items:center;gap:10px;padding:16px 22px;background:var(--modal-footer-default);border-top:1px solid var(--modal-border-default)}
+
+/* Details block (surface 50 + border 100) */
+.details{background:var(--hs-surface-bg-50);border:1px solid var(--hs-surface-border-100);border-radius:8px;padding:2px 14px;font-size:14px}
+.details div{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--hs-surface-border-100)}
+.details div:last-child{border-bottom:0}
+.details span:first-child{font-weight:500}
+
+/* ===== NavigationCard (small, light) ===== */
+.nav-cards{display:flex;flex-direction:column;gap:8px}
+.navcard{width:100%;text-align:left;font-family:inherit;color:inherit;background:var(--hs-surface-bg-0);border:1px solid var(--hs-surface-border-100);border-radius:8px;padding:16px;display:flex;align-items:center;gap:16px;cursor:pointer}
+.navcard:hover{border-color:var(--hs-surface-border-300)}
+.navcard .txt{flex:1;display:flex;flex-direction:column;gap:2px}
+.navcard b{font-size:16px;font-weight:500}
+.navcard small{font-size:14px;color:var(--hs-text-secondary)}
+.navcard svg{width:24px;height:24px;flex:none}
+
+.rows{font-size:14px}
+.rows div{display:flex;justify-content:space-between;padding:5px 0}
+.rows .total{border-top:1px solid var(--hs-surface-border-100);margin-top:6px;padding-top:12px;font-size:16px;font-weight:600}
+
+/* Notice built from Label (attention) tokens */
+.notice{background:var(--tags-attention-bg);border:1px solid var(--tags-attention-border);border-radius:8px;padding:12px 14px;color:var(--tags-attention-text)}
+.notice b{display:block;font-weight:600;font-size:14px;margin-bottom:2px}
+.notice span{font-size:14px}
+
+.done{text-align:center;padding:6px 0}
+.done .ic{width:44px;height:44px;border-radius:50%;background:var(--tags-success-bg);border:1px solid var(--tags-success-border);color:var(--tags-success-text);display:flex;align-items:center;justify-content:center;margin:0 auto 12px}
+.done .ic svg{width:22px;height:22px}
+.done b{font-weight:500}
+.done p{color:var(--hs-text-secondary);font-size:14px;margin-top:6px}
+
+.field label{display:block;font-size:14px;color:var(--hs-text-secondary);margin-bottom:6px}
+.field div{border:1px solid var(--hs-surface-border-200);border-radius:8px;padding:10px 12px;font-size:16px}
+
+.reset{position:fixed;bottom:14px;right:14px;z-index:5}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--button-neutral-bg);color:#fff;padding:10px 16px;border-radius:8px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20}
+.toast.show{opacity:1}
+@media (max-width:640px){nav{display:none}.cards{grid-template-columns:1fr}main{padding:20px 16px 90px}h1{font-size:25px}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><span></span>Acme Software</div>
+  <nav><span>Products</span><span>Pricing</span><span>Support</span><b>Account</b></nav>
+</header>
+
+<main>
+  <span class="back">← Back to orders</span>
+  <div class="title-row">
+    <h1>Order #2636</h1>
+    <button class="btn soft s200"><span>License Statement</span></button>
+  </div>
+  <div class="meta">
+    <div><b>Date:</b> 10.11.2026</div>
+    <div><b>Next payment:</b> <span id="nextPayment"></span></div>
+    <div><b>Payment method:</b> Visa •••• 4242</div>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <div><div class="k">Subscription status</div><span id="statusLabel" class="label success">Active</span></div>
+      <button class="btn soft s200" id="openManage"><span>Manage subscription</span></button>
+    </div>
+    <div class="card">
+      <div><span class="avatar"></span><span style="display:inline-block;vertical-align:middle;font-size:14px"><b style="font-weight:500">Support Engineer</b><br><span style="color:var(--hs-text-secondary)">Your contact person</span></span></div>
+      <button class="btn soft s200"><span>Contact</span></button>
+    </div>
+  </div>
+
+  <h2>Payments</h2>
+  <table>
+    <tr><th>Order</th><th>Payment method</th><th>Date</th><th>Status</th><th class="r">Price</th></tr>
+    <tr><td>#2636</td><td>Card</td><td>10.11.2026</td><td>Completed</td><td class="r">560.00 USD</td></tr>
+  </table>
+
+  <h2>Summary</h2>
+  <table>
+    <tr><th>Product</th><th class="r">Unit price</th><th class="r">Quantity</th><th class="r">Price</th></tr>
+    <tr><td>Software license (per user)</td><td class="r">220.00 USD</td><td class="r">2</td><td class="r">440.00 USD</td></tr>
+    <tr><td>Yearly subscription: updates and support</td><td class="r">120.00 USD</td><td class="r">1</td><td class="r">120.00 USD</td></tr>
+  </table>
+  <div class="totals"><span>Total:</span><span>560.00 USD</span></div>
+</main>
+
+<div class="overlay" id="overlay"><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
+<div class="toast" id="toast"></div>
+<button class="btn soft s200 reset" id="reset"><span>↺ Reset prototype</span></button>
+
+<script>
+const I = {
+  x:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  left:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>',
+  right:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>',
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'
+};
+const state = { cancelled:false, renewed:false };
+const END = '02.02.2027', NEW_END = '02.02.2028', PRICE = '1,099.00 USD';
+const overlay = document.getElementById('overlay'), modal = document.getElementById('modal');
+
+const btn = (type, text, attrs='', size='') => `<button class="btn ${type} ${size}" ${attrs}><span>${text}</span></button>`;
+const iconBtn = (icon, attrs, label) => `<button class="btn soft s200 icon" ${attrs} aria-label="${label}"><span>${I[icon]}</span></button>`;
+const navcard = (go, title, sub) => `<button class="navcard" data-go="${go}"><span class="txt"><b>${title}</b><small>${sub}</small></span>${I.right}</button>`;
+
+const head = (title, back) => `
+  <div class="m-head">
+    <div class="t">${back ? iconBtn('left', `data-go="${back}"`, 'Back') : ''}<h3>${title}</h3></div>
+    ${iconBtn('x', 'data-close', 'Close')}
+  </div>`;
+
+const details = () => `
+  <div class="details">
+    <div><span>License ID</span><span>1C4A-9263-D965-2943</span></div>
+    <div><span>License type</span><span>SaaS</span></div>
+    <div><span>Application name</span><span>somethingCOOL</span></div>
+    <div><span>Developer seats</span><span>2</span></div>
+    <div><span>Plan</span><span>Perpetual with subscription</span></div>
+  </div>`;
+
+const priceRows = () => `
+  <div class="rows">
+    <div><span>Current subscription expiry</span><span>${state.renewed ? NEW_END : END}</span></div>
+    <div><span>New subscription expiry</span><span>${state.renewed ? '02.02.2029' : NEW_END}</span></div>
+    <div class="total"><span>Total</span><span>${PRICE}</span></div>
+  </div>`;
+
+const done = (title, text) => `<div class="done"><div class="ic">${I.check}</div><b>${title}</b><p>${text}</p></div>`;
+
+const screens = {
+  manage: () => `
+    ${head('Manage subscription')}
+    <div class="m-body">
+      ${details()}
+      ${state.cancelled ? `
+        <div class="notice"><b>Subscription cancelled</b>
+          <span>You keep your license, but lose access to new releases and support after ${END}.</span></div>
+        <div class="nav-cards"><button class="navcard" data-action="doReactivate"><span class="txt"><b>Reactivate subscription</b><small>Regain access to new releases and support after ${END}.</small></span>${I.right}</button></div>
+      ` : `
+        <div class="nav-cards">
+          ${navcard('renew','Renew subscription now','Go to checkout')}
+          ${navcard('quote','Request a subscription renewal quote','For approval before you buy')}
+        </div>
+        <div>${btn('plain','Cancel subscription','data-go="cancel"','s200')}</div>
+      `}
+    </div>
+    <div class="m-foot">${btn('soft','Close','data-close')}</div>`,
+
+  renew: () => `
+    ${head('Renew your subscription period','manage')}
+    <div class="m-body">${details()}${priceRows()}</div>
+    <div class="m-foot">${btn('neutral','Continue to checkout','data-go="checkout"')}</div>`,
+
+  checkout: () => `
+    ${head('Checkout','renew')}
+    <div class="m-body">
+      <div class="field"><label>Card</label><div>Visa •••• 4242</div></div>
+      <div class="rows"><div class="total"><span>Total</span><span>${PRICE}</span></div></div>
+    </div>
+    <div class="m-foot">${btn('neutral','Pay ' + PRICE,'data-action="pay"')}</div>`,
+
+  paid: () => `
+    ${head('Order complete')}
+    <div class="m-body">${done('Your subscription is renewed.', `New subscription expiry: ${NEW_END}. A receipt is on its way to your email.`)}</div>
+    <div class="m-foot">${btn('soft','Close','data-close')}</div>`,
+
+  quote: () => `
+    ${head('Renew your subscription period','manage')}
+    <div class="m-body">${details()}${priceRows()}</div>
+    <div class="m-foot">${btn('neutral','Request a quote','data-go="quoteSent"')}</div>`,
+
+  quoteSent: () => `
+    ${head('Quote requested')}
+    <div class="m-body">${done('Your quote is on its way to your email.','Share it with the person who approves purchases before you buy.')}</div>
+    <div class="m-foot">${btn('soft','Close','data-close')}</div>`,
+
+  cancel: () => `
+    ${head('Are you sure you wish to cancel your subscription?','manage')}
+    <div class="m-body"><p>When cancelling your subscription you keep your license, but lose access to new releases and support after ${END}.</p></div>
+    <div class="m-foot">${btn('soft','No, keep subscription','data-go="manage"')}${btn('danger','Yes, cancel','data-action="doCancel"')}</div>`,
+
+};
+
+function show(name){ modal.innerHTML = screens[name](); overlay.classList.add('open'); }
+function close(){ overlay.classList.remove('open'); }
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
+
+function render(){
+  const l = document.getElementById('statusLabel');
+  l.className = 'label ' + (state.cancelled ? 'attention' : 'success');
+  l.textContent = state.cancelled ? 'Cancelled' : 'Active';
+  document.getElementById('nextPayment').textContent = state.cancelled
+    ? 'None (subscription cancelled)'
+    : (state.renewed ? NEW_END : END) + ' · ' + PRICE;
+}
+
+const actions = {
+  pay(){ state.renewed = true; render(); show('paid'); },
+  doCancel(){ state.cancelled = true; render(); show('manage'); toast('Subscription cancelled'); },
+  doReactivate(){ state.cancelled = false; render(); show('manage'); toast('Subscription is active again'); }
+};
+
+document.getElementById('openManage').onclick = () => show('manage');
+document.getElementById('reset').onclick = () => { state.cancelled=false; state.renewed=false; render(); close(); toast('Prototype reset'); };
+overlay.addEventListener('click', e => {
+  if (e.target === overlay) return close();
+  const go = e.target.closest('[data-go]'); if (go) return show(go.dataset.go);
+  const act = e.target.closest('[data-action]'); if (act) return actions[act.dataset.action]();
+  if (e.target.closest('[data-close]')) close();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+render();
+</script>
+</body>
+</html>
